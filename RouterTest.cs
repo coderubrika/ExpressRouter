@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using UnityEngine;
 
 namespace Suburb.ExpressRouter
@@ -19,7 +20,7 @@ namespace Suburb.ExpressRouter
 
         private void Awake()
         {
-            Test2();
+            //Test5();
         }
 
         private void AddAndGoTo(string name)
@@ -90,5 +91,84 @@ namespace Suburb.ExpressRouter
             routerService.GoTo("9");
             routerService.GoTo("1");
         }
+
+        // private void Test3()
+        // {
+        //     var tree = new ActionSequence();
+        //     
+        //     tree.Add(next =>
+        //     {
+        //         this.Log("1a");
+        //         next.Invoke();
+        //     });
+        //     
+        //     tree.Add(next =>
+        //     {
+        //         this.Log("2a");
+        //         next.Invoke();
+        //     });
+        //     
+        //     tree.Add(next =>
+        //     {
+        //         this.Log("3a");
+        //         next.Invoke();
+        //     });
+        //     
+        //     tree.Add(next =>
+        //     {
+        //         this.Log("4a");
+        //         next.Invoke();
+        //     });
+        //     
+        //     tree.Call();
+        // }
+        //
+        // private void Test4()
+        // {
+        //     var node = new ActionSequence();
+        //
+        //     for (int i = 0; i < 10; i++)
+        //     {
+        //         int idx = i;
+        //         node.Add(next =>
+        //         {
+        //             this.Log($"{idx}a");
+        //             Observable.Timer(TimeSpan.FromSeconds(1))
+        //                 .Subscribe(_ => next.Invoke());
+        //         });
+        //     }
+        //     
+        //     node.Call();
+        // }
+        //
+        // private void Test5()
+        // {
+        //     ActionSequence firstSeq = null;
+        //     ActionSequence prevSeq = null;
+        //     
+        //     for (int j = 0; j < 10; j++)
+        //     {
+        //         var sequence = new ActionSequence();
+        //         if (j == 0)
+        //             firstSeq = sequence;
+        //         
+        //         for (int i = 0; i < 10; i++)
+        //         {
+        //             int jdx = j;
+        //             int idx = i;
+        //             sequence.Add(next =>
+        //             {
+        //                 this.Log($"{jdx}/{idx}");
+        //                 Observable.Timer(TimeSpan.FromSeconds(0.5f))
+        //                     .Subscribe(_ => next.Invoke());
+        //             });
+        //         }
+        //         
+        //         prevSeq?.ConnectNext(sequence);
+        //         prevSeq = sequence;
+        //     }
+        //     
+        //     firstSeq.Call();
+        // }
     }
 }
