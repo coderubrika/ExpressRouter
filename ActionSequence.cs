@@ -9,6 +9,8 @@ namespace Suburb.ExpressRouter
         
         private int currentIndex;
         private ActionSequence nextSequence;
+
+        public int Count => actions.Count;
         
         public IDisposable Add(Action<Action> action)
         {
@@ -24,7 +26,7 @@ namespace Suburb.ExpressRouter
         public void Call()
         {
             if (actions.Count == 0)
-                return;
+                nextSequence?.Call();
             
             actions[0].Invoke(Next);
         }

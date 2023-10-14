@@ -33,9 +33,9 @@ namespace Suburb.ExpressRouter
         {
             return order switch
             {
-                MiddlewareOrder.From => fromMiddlewares,
-                MiddlewareOrder.Middle => middleMiddlewares,
-                _ => toMiddlewares
+                MiddlewareOrder.From => fromMiddlewares.Count > 0 ? fromMiddlewares : null,
+                MiddlewareOrder.Middle => middleMiddlewares.Count > 0 ? middleMiddlewares : null,
+                _ => toMiddlewares.Count > 0 ? toMiddlewares : null
             };
         }
     }

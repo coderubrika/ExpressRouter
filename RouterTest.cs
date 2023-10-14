@@ -75,22 +75,22 @@ namespace Suburb.ExpressRouter
             GoBackTo("f");
         }
 
-        private void Test2()
-        {
-            CreateEndpoints(10);
-
-            routerService.Use((from, to) => Debug.Log($"{from?.Name}->{to?.Name}")).Dispose();
-            routerService.Use((from, to) => Debug.Log($"{from?.Name}!!->{to?.Name}!!")).Dispose();
-            routerService.Use((from, to) => Debug.Log($"{from?.Name}**->{to?.Name}**"), "9", "1").Dispose();
-            routerService.Use((from, to) => Debug.Log($"{from?.Name}++->{to?.Name}++"), null, "9").Dispose();
-            routerService.Use((from, to) => Debug.Log($"{from?.Name}&&->{to?.Name}&&"), "4");
-
-            routerService.GoTo("4");
-            routerService.GoTo("9");
-            routerService.GoTo("1");
-            routerService.GoTo("9");
-            routerService.GoTo("1");
-        }
+        // private void Test2()
+        // {
+        //     CreateEndpoints(10);
+        //
+        //     routerService.Use((from, to) => Debug.Log($"{from?.Name}->{to?.Name}")).Dispose();
+        //     routerService.Use((from, to) => Debug.Log($"{from?.Name}!!->{to?.Name}!!")).Dispose();
+        //     routerService.Use((from, to) => Debug.Log($"{from?.Name}**->{to?.Name}**"), "9", "1").Dispose();
+        //     routerService.Use((from, to) => Debug.Log($"{from?.Name}++->{to?.Name}++"), null, "9").Dispose();
+        //     routerService.Use((from, to) => Debug.Log($"{from?.Name}&&->{to?.Name}&&"), "4");
+        //
+        //     routerService.GoTo("4");
+        //     routerService.GoTo("9");
+        //     routerService.GoTo("1");
+        //     routerService.GoTo("9");
+        //     routerService.GoTo("1");
+        // }
 
         // private void Test3()
         // {

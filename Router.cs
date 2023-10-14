@@ -5,14 +5,6 @@ using System.Linq;
 
 namespace Suburb.ExpressRouter
 {
-    internal enum Relationsheep
-    {
-        AllToAll = 0,
-        ConcreteToAll = 1,
-        AllToConcrete = 2,
-        ConcreteToConcrete = 3
-    }
-    
     public class Router
     {
         private const string ALL = "*";
@@ -20,8 +12,7 @@ namespace Suburb.ExpressRouter
 
         private readonly Stack<IEndpoint> history = new();
         private readonly Dictionary<string, IEndpoint> endpoints = new();
-        private readonly Dictionary<string, Action<IEndpoint, IEndpoint>> middlewares = new();
-        private readonly Dictionary<string, OrderedHost> orderedMiddlewares = new();
+        private readonly Dictionary<string, OrderedHost> middlewares = new();
         
         public bool GoTo(string name)
         {
@@ -123,20 +114,7 @@ namespace Suburb.ExpressRouter
             return history.TryPeek(out IEndpoint endpoint) ? endpoint : null;
         }
 
-        public IDisposable Use(Action<IEndpoint, IEndpoint> middleware, string nameFrom = null, string nameTo = null)
-        {
-            (nameFrom, nameTo) = TransformNames(nameFrom, nameTo);
-            string key = $"{nameFrom}->{nameTo}";
-        
-            if (middlewares.ContainsKey(key))
-                middlewares[key] += middleware;
-            else
-                middlewares.Add(key, middleware);
-        
-            return new DisposableHook(() => middlewares[key] -= middleware);
-        }
-
-        public IDisposable UseOrdered(
+        public IDisposable Use(
             Action<IEndpoint, IEndpoint, Action> middleware,
             string nameFrom = null, 
             string nameTo = null,
@@ -146,13 +124,13 @@ namespace Suburb.ExpressRouter
             
             string key = $"{nameFrom}->{nameTo}";
             IDisposable disposable;
-            if (orderedMiddlewares.ContainsKey(key))
-                disposable = orderedMiddlewares[key].AddMiddleware(order, middleware);
+            if (middlewares.TryGetValue(key, out var orderedMiddleware))
+                disposable = orderedMiddleware.AddMiddleware(order, middleware);
             else
             {
                 var host = new OrderedHost();
                 disposable = host.AddMiddleware(order, middleware);
-                orderedMiddlewares.Add(key, host);
+                middlewares.Add(key, host);
             }
 
             return disposable;
@@ -163,30 +141,9 @@ namespace Suburb.ExpressRouter
             string nameFrom, nameTo;
             (nameFrom, nameTo) = TransformNames(from?.Name, to?.Name);
 
-            if (middlewares.TryGetValue(ALL_FILTER, out Action<IEndpoint, IEndpoint> middleware))
-                middlewares[ALL_FILTER]?.Invoke(from, to);
-
-            var filter = $"{nameFrom}->*";
-            if (nameFrom != ALL && middlewares.TryGetValue(filter, out middleware))
-                middlewares[filter]?.Invoke(from, to);
-
-            filter = $"*->{nameTo}";
-            if (nameTo != ALL && middlewares.TryGetValue(filter, out middleware))
-                middlewares[filter]?.Invoke(from, to);
-
-            filter = $"{nameFrom}->{nameTo}";
-            if (nameFrom != ALL && nameTo != ALL && middlewares.TryGetValue(filter, out middleware))
-                middlewares[filter]?.Invoke(from, to);
-        }
-
-        private void ApplyOrderedMiddlewares(IEndpoint from = null, IEndpoint to = null)
-        {
-            string nameFrom, nameTo;
-            (nameFrom, nameTo) = TransformNames(from?.Name, to?.Name);
-
             ActionSequence sequence;
             Action call;
-
+            // порядок неправильный
             (sequence, call) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
             (sequence, call) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence, call);
             (sequence, call) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, sequence, call);
@@ -199,6 +156,9 @@ namespace Suburb.ExpressRouter
             Action startCall, 
             ActionSequence next)
         {
+            if (next == null)
+                return (previous, startCall);
+            
             if (previous != null)
                 previous.ConnectNext(next);
             else
@@ -214,19 +174,19 @@ namespace Suburb.ExpressRouter
             ActionSequence startSequence, 
             Action startCall)
         {
-            if (orderedMiddlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
+            if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
                 (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
             
             var filter = $"{nameFrom}->*";
-            if (nameFrom != ALL && orderedMiddlewares.TryGetValue(filter, out host))
+            if (nameFrom != ALL && middlewares.TryGetValue(filter, out host))
                 (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
             
             filter = $"*->{nameTo}";
-            if (nameTo != ALL && orderedMiddlewares.TryGetValue(filter, out host))
+            if (nameTo != ALL && middlewares.TryGetValue(filter, out host))
                 (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
             
             filter = $"{nameFrom}->{nameTo}";
-            if (nameFrom != ALL && nameTo != ALL && orderedMiddlewares.TryGetValue(filter, out host))
+            if (nameFrom != ALL && nameTo != ALL && middlewares.TryGetValue(filter, out host))
                 (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
 
             return (startSequence, startCall);
@@ -240,7 +200,7 @@ namespace Suburb.ExpressRouter
             if (string.IsNullOrEmpty(nameTo))
                 nameTo = ALL;
 
-            return new ValueTuple<string, string>(nameFrom, nameTo);
+            return (nameFrom, nameTo);
         }
     }
 }
