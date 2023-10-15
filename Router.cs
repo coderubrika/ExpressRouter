@@ -14,7 +14,7 @@ namespace Suburb.ExpressRouter
         private readonly Dictionary<string, IEndpoint> endpoints = new();
         private readonly Dictionary<string, OrderedHost> middlewares = new();
         
-        private ActionSequence<FromTo> sequence;
+        private ActionSequence<FromTo> head;
         
         public bool GoTo(string name)
         {
@@ -160,71 +160,71 @@ namespace Suburb.ExpressRouter
 
         private void ApplyMiddlewares(FromTo points)
         {
-            sequence?.Abort();
+            head?.Abort();
+            head?.Disassemble();
+            ActionSequence<FromTo> tail;
             
             string nameFrom, nameTo;
             (nameFrom, nameTo) = TransformNames(points.From?.Name, points.To?.Name);
-            
-            Func<FromTo, bool> call;
 
-            (sequence, call) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
-            (sequence, call) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence, call);
-            (sequence, call) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, sequence, call);
+            (tail, head) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
+            (tail, head) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, tail, head);
+            (tail, head) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, tail, head);
             
-            call?.Invoke(points);
+            head?.Call(points);
         }
 
-        private (ActionSequence<FromTo> Tail, Func<FromTo, bool> StartCall) BindSequence(
+        private (ActionSequence<FromTo> Tail, ActionSequence<FromTo> Head) BindSequence(
             ActionSequence<FromTo> previous, 
-            Func<FromTo, bool> startCall, 
+            ActionSequence<FromTo> head, 
             ActionSequence<FromTo> next)
         {
             if (next == null)
-                return (previous, startCall);
+                return (previous, head);
             
             if (previous != null)
                 previous.ConnectNext(next);
             else
-                startCall = next.Call;
+                head = next;
 
-            return (next, startCall);
+            return (next, head);
         }
 
-        private (ActionSequence<FromTo> Tail, Func<FromTo, bool> StartCall) BindByOrder(
+        private (ActionSequence<FromTo> Tail, ActionSequence<FromTo> Head) BindByOrder(
             MiddlewareOrder order, 
             string nameFrom, 
             string nameTo, 
             ActionSequence<FromTo> startSequence, 
-            Func<FromTo, bool> startCall)
+            ActionSequence<FromTo> head)
         {
             if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
             {
                 if (host.GetSequence(order) is {} sequence)
-                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+                    (startSequence, head) = BindSequence(startSequence, head, sequence);
             }
             
             var filter = $"{nameFrom}->*";
             if (nameFrom != ALL && middlewares.TryGetValue(filter, out host))
             {
                 if (host.GetSequence(order) is {} sequence)
-                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+                    (startSequence, head) = BindSequence(startSequence, head, sequence);
             }
             
             filter = $"*->{nameTo}";
             if (nameTo != ALL && middlewares.TryGetValue(filter, out host))
             {
                 if (host.GetSequence(order) is {} sequence)
-                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+                    (startSequence, head) = BindSequence(startSequence, head, sequence);
             }
             
             filter = $"{nameFrom}->{nameTo}";
             if (nameFrom != ALL && nameTo != ALL && middlewares.TryGetValue(filter, out host))
             {
                 if (host.GetSequence(order) is {} sequence)
-                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+                    (startSequence, head) = BindSequence(startSequence, head, sequence);
             }
 
-            return (startSequence, startCall);
+            return (startSequence, head);
         }
         
         private (string NameFrom, string NameTo) TransformNames(string nameFrom, string nameTo)

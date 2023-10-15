@@ -37,6 +37,12 @@ namespace Suburb.ExpressRouter
             return true;
         }
 
+        public void Disassemble()
+        {
+            nextSequence?.Disassemble();
+            nextSequence = null;
+        }
+        
         public void Abort()
         {
             if (!inProcess)
@@ -53,7 +59,7 @@ namespace Suburb.ExpressRouter
 
             nextSequence?.Finally();
         }
-
+        
         private void Finally()
         {
             if (inProcess)
