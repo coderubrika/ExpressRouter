@@ -5,17 +5,17 @@ namespace Suburb.ExpressRouter
 {
     public class ActionSequence<T>
     {
-        private readonly List<Action<T, Action<T>>> actions = new();
+        private readonly List<ActItem<T>> items = new();
         
         private int currentIndex;
         private ActionSequence<T> nextSequence;
 
-        public int Count => actions.Count;
+        public int Count => items.Count;
         
-        public IDisposable Add(Action<T, Action<T>> action)
+        public IDisposable Add(ActItem<T> item)
         {
-            actions.Add(action);
-            return new DisposableHook(() => actions.Remove(action));
+            items.Add(item);
+            return new DisposableHook(() => items.Remove(item));
         }
 
         public void ConnectNext(ActionSequence<T> nextSequence)
@@ -25,23 +25,23 @@ namespace Suburb.ExpressRouter
         
         public void Call(T arg)
         {
-            if (actions.Count == 0)
+            if (items.Count == 0)
                 nextSequence?.Call(arg);
             
-            actions[0].Invoke(arg, Next);
+            items[0].Invoke(arg, Next);
         }
 
         private void Next(T arg)
         {
             currentIndex++;
-            if (currentIndex >= actions.Count)
+            if (currentIndex >= items.Count)
             {
                 currentIndex = 0;
                 nextSequence?.Call(arg);
                 return;
             }
 
-            actions[currentIndex].Invoke(arg, Next);
+            items[currentIndex].Invoke(arg, Next);
         }
     }
 }

@@ -23,7 +23,11 @@ namespace Suburb.ExpressRouter
                 return false;
 
             history.Push(to);
-            ApplyMiddlewares(from, to);
+            ApplyMiddlewares(new FromTo
+            {
+                From = from,
+                To = to
+            });
             return true;
         }
 
@@ -34,7 +38,11 @@ namespace Suburb.ExpressRouter
 
             IEndpoint from = history.Pop();
             IEndpoint to = history.Peek();
-            ApplyMiddlewares(from, to);
+            ApplyMiddlewares(new FromTo
+            {
+                From = from,
+                To = to
+            });
             return true;
         }
 
@@ -67,7 +75,11 @@ namespace Suburb.ExpressRouter
                 }
             }
 
-            ApplyMiddlewares(from, to);
+            ApplyMiddlewares(new FromTo
+            {
+                From = from,
+                To = to
+            });
             return true;
         }
 
@@ -123,7 +135,7 @@ namespace Suburb.ExpressRouter
         }
 
         public IDisposable Use(
-            Action<(IEndpoint From, IEndpoint To), Action<(IEndpoint From, IEndpoint To)>> middleware,
+            ActItem<FromTo> middleware,
             string nameFrom = null, 
             string nameTo = null,
             MiddlewareOrder order = MiddlewareOrder.Middle)
@@ -144,25 +156,25 @@ namespace Suburb.ExpressRouter
             return disposable;
         }
 
-        private void ApplyMiddlewares(IEndpoint from = null, IEndpoint to = null)
+        private void ApplyMiddlewares(FromTo points)
         {
             string nameFrom, nameTo;
-            (nameFrom, nameTo) = TransformNames(from?.Name, to?.Name);
+            (nameFrom, nameTo) = TransformNames(points.From?.Name, points.To?.Name);
 
-            ActionSequence<(IEndpoint From, IEndpoint To)> sequence;
-            Action<(IEndpoint From, IEndpoint To)> call;
+            ActionSequence<FromTo> sequence;
+            Action<FromTo> call;
 
             (sequence, call) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
             (sequence, call) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence, call);
             (sequence, call) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, sequence, call);
             
-            call?.Invoke((from, to));
+            call?.Invoke(points);
         }
 
-        private (ActionSequence<(IEndpoint From, IEndpoint To)> Tail, Action<(IEndpoint From, IEndpoint To)> StartCall) BindSequence(
-            ActionSequence<(IEndpoint From, IEndpoint To)> previous, 
-            Action<(IEndpoint From, IEndpoint To)> startCall, 
-            ActionSequence<(IEndpoint From, IEndpoint To)> next)
+        private (ActionSequence<FromTo> Tail, Action<FromTo> StartCall) BindSequence(
+            ActionSequence<FromTo> previous, 
+            Action<FromTo> startCall, 
+            ActionSequence<FromTo> next)
         {
             if (next == null)
                 return (previous, startCall);
@@ -175,12 +187,12 @@ namespace Suburb.ExpressRouter
             return (next, startCall);
         }
 
-        private (ActionSequence<(IEndpoint From, IEndpoint To)> Tail, Action<(IEndpoint From, IEndpoint To)> StartCall) BindByOrder(
+        private (ActionSequence<FromTo> Tail, Action<FromTo> StartCall) BindByOrder(
             MiddlewareOrder order, 
             string nameFrom, 
             string nameTo, 
-            ActionSequence<(IEndpoint From, IEndpoint To)> startSequence, 
-            Action<(IEndpoint From, IEndpoint To)> startCall)
+            ActionSequence<FromTo> startSequence, 
+            Action<FromTo> startCall)
         {
             if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
             {

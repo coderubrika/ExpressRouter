@@ -11,13 +11,13 @@ namespace Suburb.ExpressRouter
     
     public class OrderedHost
     {
-        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> fromMiddlewares = new();
-        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> middleMiddlewares = new();
-        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> toMiddlewares = new();
+        private readonly ActionSequence<FromTo> fromMiddlewares = new();
+        private readonly ActionSequence<FromTo> middleMiddlewares = new();
+        private readonly ActionSequence<FromTo> toMiddlewares = new();
         
         public IDisposable AddMiddleware(
             MiddlewareOrder order, 
-            Action<(IEndpoint From, IEndpoint To), Action<(IEndpoint From, IEndpoint To)>> middleware)
+            ActItem<FromTo> middleware)
         {
             return order switch
             {
@@ -27,7 +27,7 @@ namespace Suburb.ExpressRouter
             };
         }
 
-        public ActionSequence<(IEndpoint From, IEndpoint To)> GetSequence(MiddlewareOrder order)
+        public ActionSequence<FromTo> GetSequence(MiddlewareOrder order)
         {
             return order switch
             {
