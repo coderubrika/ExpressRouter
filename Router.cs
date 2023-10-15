@@ -7,14 +7,16 @@ namespace Suburb.ExpressRouter
 {
     public class Router
     {
-        private const string ALL = "*";
         private const string ALL_FILTER = "*->*";
+        private const string NOTHING = ".null.";
 
         private readonly Stack<IEndpoint> history = new();
         private readonly Dictionary<string, IEndpoint> endpoints = new();
         private readonly Dictionary<string, OrderedHost> middlewares = new();
-        
+
         private ActionSequence<FromTo> head;
+        
+        public const string ALL = "*";
         
         public bool GoTo(string name)
         {
@@ -114,14 +116,6 @@ namespace Suburb.ExpressRouter
         public bool ContainsEndpoint(string name)
         {
             return endpoints.ContainsKey(name);
-        }
-
-        public IEndpoint TryGetEndpoint(string name)
-        {
-            if (string.IsNullOrEmpty(name) || name == ALL)
-                return null;
-            
-            return endpoints.TryGetValue(name, out IEndpoint endpoint) ? endpoint : null;
         }
         
         public IEnumerable<string> GetHistory()
@@ -227,13 +221,13 @@ namespace Suburb.ExpressRouter
             return (startSequence, head);
         }
         
-        private (string NameFrom, string NameTo) TransformNames(string nameFrom, string nameTo)
+        private static (string NameFrom, string NameTo) TransformNames(string nameFrom, string nameTo)
         {
             if (string.IsNullOrEmpty(nameFrom))
-                nameFrom = ALL;
+                nameFrom = NOTHING;
 
             if (string.IsNullOrEmpty(nameTo))
-                nameTo = ALL;
+                nameTo = NOTHING;
 
             return (nameFrom, nameTo);
         }
