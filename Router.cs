@@ -14,6 +14,8 @@ namespace Suburb.ExpressRouter
         private readonly Dictionary<string, IEndpoint> endpoints = new();
         private readonly Dictionary<string, OrderedHost> middlewares = new();
         
+        private ActionSequence<FromTo> sequence;
+        
         public bool GoTo(string name)
         {
             if (!endpoints.TryGetValue(name, out IEndpoint to))
@@ -158,11 +160,12 @@ namespace Suburb.ExpressRouter
 
         private void ApplyMiddlewares(FromTo points)
         {
+            sequence?.Abort();
+            
             string nameFrom, nameTo;
             (nameFrom, nameTo) = TransformNames(points.From?.Name, points.To?.Name);
-
-            ActionSequence<FromTo> sequence;
-            Action<FromTo> call;
+            
+            Func<FromTo, bool> call;
 
             (sequence, call) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
             (sequence, call) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence, call);
@@ -171,9 +174,9 @@ namespace Suburb.ExpressRouter
             call?.Invoke(points);
         }
 
-        private (ActionSequence<FromTo> Tail, Action<FromTo> StartCall) BindSequence(
+        private (ActionSequence<FromTo> Tail, Func<FromTo, bool> StartCall) BindSequence(
             ActionSequence<FromTo> previous, 
-            Action<FromTo> startCall, 
+            Func<FromTo, bool> startCall, 
             ActionSequence<FromTo> next)
         {
             if (next == null)
@@ -187,12 +190,12 @@ namespace Suburb.ExpressRouter
             return (next, startCall);
         }
 
-        private (ActionSequence<FromTo> Tail, Action<FromTo> StartCall) BindByOrder(
+        private (ActionSequence<FromTo> Tail, Func<FromTo, bool> StartCall) BindByOrder(
             MiddlewareOrder order, 
             string nameFrom, 
             string nameTo, 
             ActionSequence<FromTo> startSequence, 
-            Action<FromTo> startCall)
+            Func<FromTo, bool> startCall)
         {
             if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
             {

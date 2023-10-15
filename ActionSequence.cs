@@ -9,7 +9,8 @@ namespace Suburb.ExpressRouter
         
         private int currentIndex;
         private ActionSequence<T> nextSequence;
-
+        private bool inProcess;
+        
         public int Count => items.Count;
         
         public IDisposable Add(ActItem<T> item)
@@ -23,21 +24,56 @@ namespace Suburb.ExpressRouter
             this.nextSequence = nextSequence;
         }
         
-        public void Call(T arg)
+        public bool Call(T arg)
         {
+            if (inProcess)
+                return false;
+
             if (items.Count == 0)
-                nextSequence?.Call(arg);
-            
+                return nextSequence != null && nextSequence.Call(arg);
+
+            inProcess = true;
             items[0].Invoke(arg, Next);
+            return true;
         }
 
+        public void Abort()
+        {
+            if (!inProcess)
+            {
+                nextSequence?.Abort();
+                return;
+            }
+
+            inProcess = false;
+
+            items[currentIndex].Abort();
+            for (int i = currentIndex + 1; i < items.Count; i++)
+                items[currentIndex].Finally();
+
+            nextSequence?.Finally();
+        }
+
+        private void Finally()
+        {
+            if (inProcess)
+                Abort();
+
+            foreach (var item in items)
+                item.Finally();
+            
+            nextSequence?.Finally();
+        }
+        
         private void Next(T arg)
         {
+            items[currentIndex].Finally();
             currentIndex++;
             if (currentIndex >= items.Count)
             {
                 currentIndex = 0;
                 nextSequence?.Call(arg);
+                inProcess = false;
                 return;
             }
 
