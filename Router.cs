@@ -102,6 +102,14 @@ namespace Suburb.ExpressRouter
             return endpoints.ContainsKey(name);
         }
 
+        public IEndpoint TryGetEndpoint(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name == ALL)
+                return null;
+            
+            return endpoints.TryGetValue(name, out IEndpoint endpoint) ? endpoint : null;
+        }
+        
         public IEnumerable<string> GetHistory()
         {
             return history
@@ -115,7 +123,7 @@ namespace Suburb.ExpressRouter
         }
 
         public IDisposable Use(
-            Action<IEndpoint, IEndpoint, Action> middleware,
+            Action<(IEndpoint From, IEndpoint To), Action<(IEndpoint From, IEndpoint To)>> middleware,
             string nameFrom = null, 
             string nameTo = null,
             MiddlewareOrder order = MiddlewareOrder.Middle)
@@ -141,20 +149,20 @@ namespace Suburb.ExpressRouter
             string nameFrom, nameTo;
             (nameFrom, nameTo) = TransformNames(from?.Name, to?.Name);
 
-            ActionSequence sequence;
-            Action call;
-            // порядок неправильный
+            ActionSequence<(IEndpoint From, IEndpoint To)> sequence;
+            Action<(IEndpoint From, IEndpoint To)> call;
+
             (sequence, call) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
             (sequence, call) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence, call);
             (sequence, call) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, sequence, call);
             
-            call?.Invoke();
+            call?.Invoke((from, to));
         }
 
-        private (ActionSequence Tail, Action StartCall) BindSequence(
-            ActionSequence previous, 
-            Action startCall, 
-            ActionSequence next)
+        private (ActionSequence<(IEndpoint From, IEndpoint To)> Tail, Action<(IEndpoint From, IEndpoint To)> StartCall) BindSequence(
+            ActionSequence<(IEndpoint From, IEndpoint To)> previous, 
+            Action<(IEndpoint From, IEndpoint To)> startCall, 
+            ActionSequence<(IEndpoint From, IEndpoint To)> next)
         {
             if (next == null)
                 return (previous, startCall);
@@ -167,27 +175,39 @@ namespace Suburb.ExpressRouter
             return (next, startCall);
         }
 
-        private (ActionSequence Tail, Action StartCall) BindByOrder(
+        private (ActionSequence<(IEndpoint From, IEndpoint To)> Tail, Action<(IEndpoint From, IEndpoint To)> StartCall) BindByOrder(
             MiddlewareOrder order, 
             string nameFrom, 
             string nameTo, 
-            ActionSequence startSequence, 
-            Action startCall)
+            ActionSequence<(IEndpoint From, IEndpoint To)> startSequence, 
+            Action<(IEndpoint From, IEndpoint To)> startCall)
         {
             if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
-                (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
+            {
+                if (host.GetSequence(order) is {} sequence)
+                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+            }
             
             var filter = $"{nameFrom}->*";
             if (nameFrom != ALL && middlewares.TryGetValue(filter, out host))
-                (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
+            {
+                if (host.GetSequence(order) is {} sequence)
+                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+            }
             
             filter = $"*->{nameTo}";
             if (nameTo != ALL && middlewares.TryGetValue(filter, out host))
-                (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
+            {
+                if (host.GetSequence(order) is {} sequence)
+                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+            }
             
             filter = $"{nameFrom}->{nameTo}";
             if (nameFrom != ALL && nameTo != ALL && middlewares.TryGetValue(filter, out host))
-                (startSequence, startCall) = BindSequence(startSequence, startCall, host.GetSequence(order));
+            {
+                if (host.GetSequence(order) is {} sequence)
+                    (startSequence, startCall) = BindSequence(startSequence, startCall, sequence);
+            }
 
             return (startSequence, startCall);
         }

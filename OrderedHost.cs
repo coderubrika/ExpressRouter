@@ -11,25 +11,23 @@ namespace Suburb.ExpressRouter
     
     public class OrderedHost
     {
-        private readonly ActionSequence fromMiddlewares = new();
-        private readonly ActionSequence middleMiddlewares = new();
-        private readonly ActionSequence toMiddlewares = new();
+        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> fromMiddlewares = new();
+        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> middleMiddlewares = new();
+        private readonly ActionSequence<(IEndpoint From, IEndpoint To)> toMiddlewares = new();
         
         public IDisposable AddMiddleware(
             MiddlewareOrder order, 
-            Action<IEndpoint, IEndpoint, Action> middleware, 
-            IEndpoint from = null, 
-            IEndpoint to = null)
+            Action<(IEndpoint From, IEndpoint To), Action<(IEndpoint From, IEndpoint To)>> middleware)
         {
             return order switch
             {
-                MiddlewareOrder.From => fromMiddlewares.Add(next => middleware.Invoke(from, to, next)),
-                MiddlewareOrder.To => toMiddlewares.Add(next => middleware.Invoke(from, to, next)),
-                _ => middleMiddlewares.Add(next => middleware.Invoke(from, to, next))
+                MiddlewareOrder.From => fromMiddlewares.Add(middleware),
+                MiddlewareOrder.To => toMiddlewares.Add(middleware),
+                _ => middleMiddlewares.Add(middleware)
             };
         }
 
-        public ActionSequence GetSequence(MiddlewareOrder order)
+        public ActionSequence<(IEndpoint From, IEndpoint To)> GetSequence(MiddlewareOrder order)
         {
             return order switch
             {
