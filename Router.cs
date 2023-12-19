@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,16 +8,18 @@ namespace Suburb.ExpressRouter
 {
     public class Router
     {
-        private const string ALL_FILTER = "*->*";
-        private const string NOTHING = ".null.";
-
         private readonly Stack<IEndpoint> history = new();
         private readonly Dictionary<string, IEndpoint> endpoints = new();
-        private readonly Dictionary<string, OrderedHost> middlewares = new();
 
-        private ActionSequence<FromTo> head;
-        
-        public const string ALL = "*";
+        private readonly Dictionary<MiddlewareOrder, HashSet<(Rule rule, ActItem<FromTo> middleware)>> middlewares = new()
+        {
+            { MiddlewareOrder.From, new() },
+            { MiddlewareOrder.Middle, new() },
+            { MiddlewareOrder.To, new() }
+        };
+
+
+        private readonly ActionSequence<FromTo> sequence = new();
         
         public bool GoTo(string name)
         {
@@ -131,105 +134,39 @@ namespace Suburb.ExpressRouter
         }
 
         public IDisposable Use(
-            ActItem<FromTo> middleware,
-            string nameFrom = null, 
-            string nameTo = null,
+            ActItem<FromTo> middleware, Rule rule,
             MiddlewareOrder order = MiddlewareOrder.Middle)
         {
-            (nameFrom, nameTo) = TransformNames(nameFrom, nameTo);
-            
-            string key = $"{nameFrom}->{nameTo}";
-            IDisposable disposable;
-            if (middlewares.TryGetValue(key, out var orderedMiddleware))
-                disposable = orderedMiddleware.AddMiddleware(order, middleware);
-            else
-            {
-                var host = new OrderedHost();
-                disposable = host.AddMiddleware(order, middleware);
-                middlewares.Add(key, host);
-            }
-
-            return disposable;
+            ValueTuple<Rule, ActItem<FromTo>> item = new(rule, middleware);
+            middlewares[order].Add(item);
+            return new DisposableHook(() => middlewares[order].Remove(item));
         }
 
         private void ApplyMiddlewares(FromTo points)
         {
-            head?.Abort();
-            head?.Disassemble();
-            ActionSequence<FromTo> tail;
-            
-            string nameFrom, nameTo;
-            (nameFrom, nameTo) = TransformNames(points.From?.Name, points.To?.Name);
+            sequence.Clear();
+            string nameFrom = points.From?.Name;
+            string nameTo = points.To?.Name;
 
-            (tail, head) = BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, null, null);
-            (tail, head) = BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, tail, head);
-            (tail, head) = BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, tail, head);
+            BindByOrder(MiddlewareOrder.From, nameFrom, nameTo, sequence);
+            BindByOrder(MiddlewareOrder.Middle, nameFrom, nameTo, sequence);
+            BindByOrder(MiddlewareOrder.To, nameFrom, nameTo, sequence);
             
-            head?.Call(points);
+            sequence.Call(points);
         }
 
-        private (ActionSequence<FromTo> Tail, ActionSequence<FromTo> Head) BindSequence(
-            ActionSequence<FromTo> previous, 
-            ActionSequence<FromTo> head, 
-            ActionSequence<FromTo> next)
-        {
-            if (next == null)
-                return (previous, head);
-            
-            if (previous != null)
-                previous.ConnectNext(next);
-            else
-                head = next;
-
-            return (next, head);
-        }
-
-        private (ActionSequence<FromTo> Tail, ActionSequence<FromTo> Head) BindByOrder(
+        private void BindByOrder(
             MiddlewareOrder order, 
             string nameFrom, 
             string nameTo, 
-            ActionSequence<FromTo> startSequence, 
-            ActionSequence<FromTo> head)
+            ActionSequence<FromTo> sequence)
         {
-            if (middlewares.TryGetValue(ALL_FILTER, out OrderedHost host))
-            {
-                if (host.GetSequence(order) is {} sequence)
-                    (startSequence, head) = BindSequence(startSequence, head, sequence);
-            }
-            
-            var filter = $"{nameFrom}->*";
-            if (nameFrom != ALL && middlewares.TryGetValue(filter, out host))
-            {
-                if (host.GetSequence(order) is {} sequence)
-                    (startSequence, head) = BindSequence(startSequence, head, sequence);
-            }
-            
-            filter = $"*->{nameTo}";
-            if (nameTo != ALL && middlewares.TryGetValue(filter, out host))
-            {
-                if (host.GetSequence(order) is {} sequence)
-                    (startSequence, head) = BindSequence(startSequence, head, sequence);
-            }
-            
-            filter = $"{nameFrom}->{nameTo}";
-            if (nameFrom != ALL && nameTo != ALL && middlewares.TryGetValue(filter, out host))
-            {
-                if (host.GetSequence(order) is {} sequence)
-                    (startSequence, head) = BindSequence(startSequence, head, sequence);
-            }
+            var middlewaresList = middlewares[order]
+                .Where(item => item.rule.Match(nameFrom, nameTo))
+                .Select(item => item.middleware);
 
-            return (startSequence, head);
-        }
-        
-        private static (string NameFrom, string NameTo) TransformNames(string nameFrom, string nameTo)
-        {
-            if (string.IsNullOrEmpty(nameFrom))
-                nameFrom = NOTHING;
-
-            if (string.IsNullOrEmpty(nameTo))
-                nameTo = NOTHING;
-
-            return (nameFrom, nameTo);
+            foreach (var middleware in middlewaresList)
+                sequence.Add(middleware);
         }
     }
 }

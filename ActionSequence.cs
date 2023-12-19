@@ -59,6 +59,14 @@ namespace Suburb.ExpressRouter
 
             nextSequence?.Finally();
         }
+
+        public void Clear()
+        {
+            Abort();
+            Disassemble();
+            currentIndex = 0;
+            items.Clear();
+        }
         
         private void Finally()
         {
