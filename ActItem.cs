@@ -7,6 +7,7 @@ namespace Suburb.ExpressRouter
         private readonly Action<T, Action<T>> action;
         private readonly Action abort;
         private readonly Action finallyCallback;
+        
         public ActItem(
             Action<T, Action<T>> action, 
             Action finallyCallback = null, 
@@ -16,6 +17,7 @@ namespace Suburb.ExpressRouter
             this.finallyCallback = finallyCallback;
             this.abort = abort;
         }
+        
         public void Invoke(T arg, Action<T> next) => action.Invoke(arg, next);
 
         public void Abort()
@@ -23,6 +25,7 @@ namespace Suburb.ExpressRouter
             abort?.Invoke();
             finallyCallback?.Invoke();
         }
+        
         public void Finally() => finallyCallback?.Invoke();
     }
 }
