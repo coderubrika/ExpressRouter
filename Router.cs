@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Suburb.Utils;
 
 
 namespace Suburb.ExpressRouter
@@ -139,7 +139,7 @@ namespace Suburb.ExpressRouter
         {
             ValueTuple<Rule, ActItem<FromTo>> item = new(rule, middleware);
             middlewares[order].Add(item);
-            return new DisposableHook(() => middlewares[order].Remove(item));
+            return new DisposableObject(() => middlewares[order].Remove(item));
         }
 
         private void ApplyMiddlewares(FromTo points)
