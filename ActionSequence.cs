@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Suburb.Utils;
+using UniRx;
 
 namespace Suburb.ExpressRouter
 {
@@ -17,7 +17,7 @@ namespace Suburb.ExpressRouter
         public IDisposable Add(ActItem<T> item)
         {
             items.Add(item);
-            return new DisposableObject(() => items.Remove(item));
+            return Disposable.Create(() => items.Remove(item));
         }
 
         public void ConnectNext(ActionSequence<T> nextSequence)
